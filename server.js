@@ -42,6 +42,46 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 console.log("Supabase client initialized");
+async function seedUsers() {
+  const seeds = [
+    { username: "admin",   password: "dnflwlq132", name: "관리자", role: "admin" },
+    { username: "client1", password: "dnflwlq132", name: "고객1",  role: "client" },
+    { username: "client2", password: "dnflwlq132", name: "고객2",  role: "client" },
+  ];
+
+  for (const u of seeds) {
+    const { data: exist, error: selErr } = await supabase
+      .from("users")
+      .select("id, username")
+      .eq("username", u.username)
+      .maybeSingle();
+
+    if (selErr) {
+      console.error("[seedUsers] select error:", selErr.message);
+      continue;
+    }
+
+    if (!exist) {
+      const { error: insErr } = await supabase
+        .from("users")
+        .insert([u]);
+
+      if (insErr) console.error("[seedUsers] insert error:", insErr.message);
+      else console.log(`[seedUsers] inserted: ${u.username}`);
+    } else {
+      const { error: updErr } = await supabase
+        .from("users")
+        .update({ password: u.password, name: u.name, role: u.role })
+        .eq("username", u.username);
+
+      if (updErr) console.error("[seedUsers] update error:", updErr.message);
+      else console.log(`[seedUsers] updated: ${u.username}`);
+    }
+  }
+}
+
+// 서버 시작 시 한번 실행
+seedUsers().catch((e) => console.error("[seedUsers] fatal:", e));
 
 // ====== static ======
 app.use(express.static(path.join(__dirname, "public")));
