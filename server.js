@@ -1,9 +1,18 @@
 const express = require("express");
 const session = require("express-session");
 const path = require("path");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// =========================
+// Supabase
+// =========================
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // =========================
 // 기본 설정
@@ -13,7 +22,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // =========================
-// 세션 설정
+// 세션
 // =========================
 app.use(
   session({
@@ -22,8 +31,8 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: false,
+      sameSite: "lax",
       maxAge: 1000 * 60 * 60 * 6,
     },
   })
@@ -35,43 +44,13 @@ app.use(
 app.use(express.static(path.join(__dirname, "public")));
 
 // =========================
-// 계정
+// 계정 (테스트용)
 // =========================
 const USERS = [
- const USERS = [
-  { username: "admin", password: "admin1234", name: "관리자", role: "admin" },
-
-  // ✅ 기존 1234 삭제하고 강하게
-  { username: "client1", password: "Client1!2025", name: "김도헌", role: "client" },
-  { username: "client2", password: "Client2!2025", name: "문세음", role: "client" },
+  { username: "admin", password: "dnflwlq132", name: "관리자", role: "admin" },
+  { username: "client1", password: "dnflwlq132", name: "김도헌", role: "client" },
+  { username: "client2", password: "dnflwlq132", name: "문세음", role: "client" },
 ];
-
-
-// =========================
-// 더미 리포트
-// =========================
-const DUMMY_REPORTS = {
-  client1: {
-    clientName: "김도헌",
-    period: "최근 7일",
-    kpis: [
-      { label: "광고비", value: "₩120,000" },
-      { label: "문의", value: "18건" },
-      { label: "CPL", value: "₩6,667" },
-      { label: "전환율", value: "3.2%" },
-    ],
-  },
-  client2: {
-    clientName: "문세음",
-    period: "최근 7일",
-    kpis: [
-      { label: "광고비", value: "₩80,000" },
-      { label: "문의", value: "11건" },
-      { label: "CPL", value: "₩7,273" },
-      { label: "전환율", value: "2.7%" },
-    ],
-  },
-};
 
 // =========================
 // 가드
@@ -94,36 +73,125 @@ app.use("/admin", (req, res, next) => {
 // =========================
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
-  const user = USERS.find(u => u.username === username && u.password === password);
-  if (!user) return res.status(401).json({ ok: false });
 
-  req.session.user = user;
+  const user = USERS.find(
+    (u) => u.username === username && u.password === password
+  );
+
+  if (!user) {
+    return res.status(401).json({
+      ok: false,
+      message: "아이디 또는 비밀번호가 일치하지 않습니다.",
+    });
+  }
+
+  req.session.user = {
+    username: user.username,
+    name: user.name,
+    role: user.role,
+  };
+
+  const redirect =
+    user.role === "admin"
+      ? "/admin/dashboard.html"
+      : "/report/dashboard.html";
+
+  res.json({ ok: true, redirect });
+});
+
+// =========================
+// 로그인 정보
+// =========================
+app.get("/api/me", (req, res) => {
+  if (!req.session.user) return res.status(401).json({ ok: false });
+  res.json({ ok: true, user: req.session.user });
+});
+
+// =========================
+// 리포트 (Supabase)
+// =========================
+app.get("/api/report", async (req, res) => {
+  if (!req.session.user) return res.status(401).json({ ok: false });
+
+  const { username, role, name } = req.session.user;
+
+  if (role === "admin") {
+    return res.json({
+      ok: true,
+      report: {
+        clientName: "전체(샘플)",
+        period: "최근 7일",
+        kpis: [],
+        highlights: ["관리자 샘플 화면"],
+        actions: [],
+      },
+    });
+  }
+
+  const { data: user } = await supabase
+    .from("users")
+    .select("id, name")
+    .eq("username", username)
+    .single();
+
+  if (!user) {
+    return res.json({
+      ok: true,
+      report: {
+        clientName: name,
+        period: "-",
+        kpis: [],
+        highlights: ["유저 정보 없음"],
+        actions: [],
+      },
+    });
+  }
+
+  const { data: report } = await supabase
+    .from("reports")
+    .select("period, kpis, highlights, actions")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!report) {
+    return res.json({
+      ok: true,
+      report: {
+        clientName: user.name,
+        period: "-",
+        kpis: [],
+        highlights: ["리포트 데이터 없음"],
+        actions: [],
+      },
+    });
+  }
+
   res.json({
     ok: true,
-    redirect: user.role === "admin"
-      ? "/admin/dashboard.html"
-      : "/report/dashboard.html"
+    report: {
+      clientName: user.name,
+      period: report.period,
+      kpis: report.kpis,
+      highlights: report.highlights,
+      actions: report.actions,
+    },
   });
 });
 
 // =========================
-// 관리자: 고객 리포트 조회 (B-2 핵심)
+// 로그아웃
 // =========================
-app.get("/api/admin/report", (req, res) => {
-  if (!req.session.user || req.session.user.role !== "admin") {
-    return res.status(403).json({ ok: false });
-  }
-
-  const username = req.query.user;
-  const report = DUMMY_REPORTS[username];
-
-  if (!report) {
-    return res.json({ ok: false, message: "리포트 없음" });
-  }
-
-  res.json({ ok: true, report });
+app.post("/api/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie("connect.sid");
+    res.redirect("/report/login.html");
+  });
 });
 
+// =========================
+// 시작
 // =========================
 app.listen(PORT, () => {
   console.log("✅ Server running on port:", PORT);
