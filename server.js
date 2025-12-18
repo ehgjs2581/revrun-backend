@@ -78,7 +78,41 @@ async function seedUsers() {
       else console.log(`[seedUsers] updated: ${u.username}`);
     }
   }
-}
+}app.get("/api/diag/supabase", async (req, res) => {
+  const url = (process.env.SUPABASE_URL || "").trim();
+  const key = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+
+  const maskedKey = key ? key.slice(0, 6) + "..." + key.slice(-6) : "";
+  const okUrl = !!url && url.startsWith("https://") && url.includes(".supabase.co");
+  const okKey = !!key && key.length > 30;
+
+  // 네트워크 테스트: Supabase REST 엔드포인트에 HEAD 요청
+  try {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 5000);
+
+    const r = await fetch(url.replace(/\/$/, "") + "/rest/v1/", {
+      method: "HEAD",
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      signal: controller.signal,
+    });
+
+    clearTimeout(t);
+
+    return res.json({
+      ok: true,
+      env: { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: maskedKey, okUrl, okKey },
+      fetch_test: { status: r.status, statusText: r.statusText }
+    });
+  } catch (e) {
+    return res.json({
+      ok: false,
+      env: { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: maskedKey, okUrl, okKey },
+      fetch_error: String(e?.message || e),
+    });
+  }
+});
+
 
 // 서버 시작 시 한번 실행
 seedUsers().catch((e) => console.error("[seedUsers] fatal:", e));
