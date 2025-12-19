@@ -39,7 +39,47 @@ const BUILD_ID = process.env.VERCEL_GIT_COMMIT_SHA
 app.get("/api/version", (req, res) => {
   res.json({ ok: true, build: BUILD_ID });
 });
+// ====== diagnostics ======
+app.get("/api/diag/supabase", async (req, res) => {
+  const url = SUPABASE_URL;
+  const key = SUPABASE_SERVICE_ROLE_KEY;
+  
+  const maskedKey = key ? key.slice(0, 6) + "..." + key.slice(-6) : "";
+  const okUrl = !!url && url.startsWith("https://") && url.includes(".supabase.co");
+  const okKey = !!key && key.length > 30;
 
+  try {
+    const testRes = await fetch(url.replace(/\/$/, "") + "/rest/v1/", {
+      method: "GET",
+      headers: { 
+        apikey: key, 
+        Authorization: `Bearer ${key}` 
+      },
+    });
+
+    const text = await testRes.text();
+
+    return res.json({
+      ok: true,
+      env: { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: maskedKey, okUrl, okKey },
+      fetch_test: { 
+        status: testRes.status, 
+        statusText: testRes.statusText, 
+        body_sample: text.slice(0, 120) 
+      },
+    });
+  } catch (e) {
+    return res.json({
+      ok: false,
+      env: { SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: maskedKey, okUrl, okKey },
+      fetch_error: { 
+        message: e?.message || String(e), 
+        code: e?.code, 
+        name: e?.name 
+      },
+    });
+  }
+});
 // ====== Supabase ======
 const SUPABASE_URL = (process.env.SUPABASE_URL || "").trim();
 const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
