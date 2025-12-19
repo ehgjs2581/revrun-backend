@@ -341,7 +341,11 @@ app.get("/api/report", requireAuth, async (req, res) => {
 app.get("/", (req, res) => res.redirect("/report/login.html"));
 
 // ====== start ======
-app.listen(PORT, () => {
-  console.log(`Server running on port: ${PORT}`);
-});
+// Vercel Serverless용: listen 조건부
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server running on port: ${PORT}`);
+  });
+}
+
 export default app;
