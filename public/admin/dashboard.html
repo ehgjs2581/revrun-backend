@@ -2,41 +2,361 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>REVRUN | 관리자</title>
+
   <style>
-    body { background:#0b0f19; color:#fff; font-family:system-ui; }
-    .wrap { max-width:900px; margin:60px auto; }
-    button { padding:10px 14px; margin:6px; border-radius:8px; border:none; background:#4f7cff; color:#fff; }
-    .card { background:#121a2a; padding:20px; border-radius:14px; margin-top:20px; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      background: #0b0f14;
+      color: #e8eef6;
+    }
+    .wrap {
+      max-width: 1000px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    h1 {
+      font-size: 24px;
+      margin: 0;
+    }
+    .muted {
+      opacity: 0.7;
+      font-size: 14px;
+    }
+    button {
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: none;
+      background: #4c7dff;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #5a8aff;
+    }
+    button.secondary {
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    button.secondary:hover {
+      background: #2d3a4f;
+    }
+    .card {
+      background: #111826;
+      border: 1px solid #223046;
+      border-radius: 14px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      margin: 0 0 16px;
+      font-size: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0.9;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid #334155;
+      background: #0f1419;
+      color: #e8eef6;
+      font-size: 14px;
+      font-family: inherit;
+      margin-bottom: 14px;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      font-family: 'Courier New', monospace;
+    }
+    .field-group {
+      margin-bottom: 18px;
+    }
+    .kpi-item {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    .btn-remove {
+      padding: 8px 12px;
+      background: #dc2626;
+      border-radius: 8px;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .btn-remove:hover {
+      background: #ef4444;
+    }
+    .btn-add {
+      padding: 8px 14px;
+      background: #059669;
+      border-radius: 8px;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .btn-add:hover {
+      background: #10b981;
+    }
+    .list-item {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    .list-item input {
+      flex: 1;
+      margin-bottom: 0;
+    }
+    .success {
+      background: #065f46;
+      border: 1px solid #059669;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
+    .error {
+      background: #7f1d1d;
+      border: 1px solid #dc2626;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+    }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <h1>관리자 대시보드</h1>
+  <div class="wrap">
+    
+    <div class="top">
+      <div>
+        <h1>관리자 대시보드</h1>
+        <div class="muted" id="userInfo">로딩 중...</div>
+      </div>
+      <button onclick="logout()">로그아웃</button>
+    </div>
 
-  <div>
-    <button onclick="load('client1')">김도헌</button>
-    <button onclick="load('client2')">문세음</button>
+    <div id="message"></div>
+
+    <div class="card">
+      <h2>리포트 작성</h2>
+
+      <div class="field-group">
+        <label>고객 선택</label>
+        <select id="clientSelect">
+          <option value="">-- 고객을 선택하세요 --</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>기간</label>
+        <select id="periodSelect">
+          <option value="최근 7일">최근 7일</option>
+          <option value="최근 14일">최근 14일</option>
+          <option value="최근 30일">최근 30일</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label>KPI 항목</label>
+        <div id="kpiContainer"></div>
+        <button class="btn-add" onclick="addKpi()">+ KPI 추가</button>
+      </div>
+
+      <div class="field-group">
+        <label>하이라이트 (줄바꿈으로 구분)</label>
+        <textarea id="highlightsInput" placeholder="예:&#10;광고 예산 대비 문의 증가 추세&#10;전환율 20% 향상"></textarea>
+      </div>
+
+      <div class="field-group">
+        <label>다음 액션 (줄바꿈으로 구분)</label>
+        <textarea id="actionsInput" placeholder="예:&#10;키워드 추가 테스트 진행&#10;광고 소재 A/B 테스트"></textarea>
+      </div>
+
+      <button onclick="saveReport()" style="width:100%; padding:14px; font-size:15px;">💾 리포트 저장</button>
+    </div>
+
+    <div class="card">
+      <h2>최근 리포트 목록</h2>
+      <div id="reportsList">
+        <div class="muted">고객을 선택하면 리포트 목록이 표시됩니다.</div>
+      </div>
+    </div>
+
   </div>
 
-  <div class="card" id="report">고객 선택</div>
-</div>
+  <script>
+    let clients = [];
 
-<script>
-async function load(user) {
-  const res = await fetch(`/api/admin/report?user=${user}`, { credentials:"include" });
-  const data = await res.json();
-  if (!data.ok) return;
+    async function api(path, opts = {}) {
+      const res = await fetch(path, {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        ...opts
+      });
+      return res.json();
+    }
 
-  const r = data.report;
-  document.getElementById("report").innerHTML = `
-    <h3>${r.clientName}</h3>
-    <div>${r.period}</div>
-    <ul>
-      ${r.kpis.map(k => `<li>${k.label}: ${k.value}</li>`).join("")}
-    </ul>
-  `;
-}
-</script>
+    function showMessage(text, type = "success") {
+      const el = document.getElementById("message");
+      el.className = type;
+      el.textContent = text;
+      setTimeout(() => { el.innerHTML = ""; el.className = ""; }, 5000);
+    }
+
+    async function logout() {
+      await api("/api/logout", { method: "POST" });
+      location.href = "/report/login.html";
+    }
+
+    function addKpi() {
+      const container = document.getElementById("kpiContainer");
+      const div = document.createElement("div");
+      div.className = "kpi-item";
+      div.innerHTML = `
+        <input type="text" placeholder="항목명 (예: 광고비)" class="kpi-label" />
+        <input type="text" placeholder="값 (예: 1,200,000원)" class="kpi-value" />
+        <button class="btn-remove" onclick="this.parentElement.remove()">삭제</button>
+      `;
+      container.appendChild(div);
+    }
+
+    function getKpis() {
+      const items = document.querySelectorAll(".kpi-item");
+      const kpis = [];
+      items.forEach(item => {
+        const label = item.querySelector(".kpi-label").value.trim();
+        const value = item.querySelector(".kpi-value").value.trim();
+        if (label && value) {
+          kpis.push({ label, value });
+        }
+      });
+      return kpis;
+    }
+
+    function textToArray(text) {
+      return text.split("\n").map(s => s.trim()).filter(Boolean);
+    }
+
+    async function saveReport() {
+      const clientId = document.getElementById("clientSelect").value;
+      if (!clientId) {
+        showMessage("❌ 고객을 선택해주세요", "error");
+        return;
+      }
+
+      const period = document.getElementById("periodSelect").value;
+      const kpis = getKpis();
+      const highlights = textToArray(document.getElementById("highlightsInput").value);
+      const actions = textToArray(document.getElementById("actionsInput").value);
+
+      if (kpis.length === 0) {
+        showMessage("❌ 최소 1개 이상의 KPI를 입력해주세요", "error");
+        return;
+      }
+
+      const payload = { kpis, highlights, actions };
+
+      const data = await api("/api/admin/report", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: clientId,
+          period,
+          payload
+        })
+      });
+
+      if (data.ok) {
+        showMessage("✅ 리포트가 저장되었습니다!");
+        loadReports(clientId);
+        // 폼 초기화
+        document.getElementById("kpiContainer").innerHTML = "";
+        document.getElementById("highlightsInput").value = "";
+        document.getElementById("actionsInput").value = "";
+        addKpi(); // 기본 1개
+      } else {
+        showMessage("❌ 저장 실패: " + (data.error || "알 수 없는 오류"), "error");
+      }
+    }
+
+    async function loadReports(userId) {
+      const data = await api(`/api/admin/reports?user_id=${userId}`);
+      const list = document.getElementById("reportsList");
+      
+      if (!data.ok || !data.reports || data.reports.length === 0) {
+        list.innerHTML = '<div class="muted">저장된 리포트가 없습니다.</div>';
+        return;
+      }
+
+      list.innerHTML = data.reports.map(r => `
+        <div style="padding:10px; background:#0b1220; border:1px solid #223046; border-radius:8px; margin-bottom:8px;">
+          <div><strong>${r.period || "기간 미지정"}</strong></div>
+          <div class="muted" style="font-size:12px;">${new Date(r.created_at).toLocaleString('ko-KR')}</div>
+        </div>
+      `).join("");
+    }
+
+    async function boot() {
+      // 로그인 체크
+      const me = await api("/api/me");
+      if (!me?.user || me.user.role !== "admin") {
+        location.href = "/report/login.html";
+        return;
+      }
+      document.getElementById("userInfo").textContent = `${me.user.name || me.user.username} (관리자)`;
+
+      // 고객 목록 로드
+      const data = await api("/api/admin/clients");
+      if (data.ok && data.clients) {
+        clients = data.clients;
+        const select = document.getElementById("clientSelect");
+        clients.forEach(c => {
+          const opt = document.createElement("option");
+          opt.value = c.id;
+          opt.textContent = `${c.name || c.username} (${c.username})`;
+          select.appendChild(opt);
+        });
+      }
+
+      // 고객 선택 시 리포트 목록 로드
+      document.getElementById("clientSelect").addEventListener("change", (e) => {
+        const userId = e.target.value;
+        if (userId) {
+          loadReports(userId);
+        } else {
+          document.getElementById("reportsList").innerHTML = '<div class="muted">고객을 선택하면 리포트 목록이 표시됩니다.</div>';
+        }
+      });
+
+      // 기본 KPI 1개 추가
+      addKpi();
+    }
+
+    boot();
+  </script>
 </body>
 </html>
